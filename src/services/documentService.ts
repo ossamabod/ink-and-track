@@ -1,7 +1,7 @@
 import { DocumentFile, ApiResponse, SignDocumentRequest } from '../types/document';
 
 // Base API URL - adjust this to match your backend
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 class DocumentService {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
