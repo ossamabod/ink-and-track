@@ -4,6 +4,7 @@ import { documentService } from '../../services/documentService';
 
 interface DocumentsState {
   files: DocumentFile[];
+  localFiles: DocumentFile[];
   uploadProgress: UploadProgress[];
   isLoading: boolean;
   error: string | null;
@@ -11,6 +12,7 @@ interface DocumentsState {
 
 const initialState: DocumentsState = {
   files: [],
+  localFiles: [],
   uploadProgress: [],
   isLoading: false,
   error: null,
@@ -52,8 +54,29 @@ export const uploadDocument = createAsyncThunk(
 
 export const signDocument = createAsyncThunk(
   'documents/signDocument',
-  async ({ documentId, signature }: { documentId: string; signature: string }, { rejectWithValue }) => {
+  async ({ document, signature }: { document: DocumentFile; signature: string }, { dispatch, rejectWithValue }) => {
     try {
+      let documentId = document.id;
+      
+      // If it's a local file, upload it first
+      if (document.status === 'local' && document.file) {
+        const fileId = document.id;
+        
+        // Add upload progress tracking
+        dispatch(addUploadProgress({ fileId, progress: 0, status: 'uploading' }));
+        
+        const uploadResponse = await documentService.uploadDocument(document.file, (progress) => {
+          dispatch(updateUploadProgress({ fileId, progress }));
+        });
+        
+        dispatch(removeUploadProgress(fileId));
+        documentId = uploadResponse.data.id;
+        
+        // Remove from local files and add to uploaded files
+        dispatch(removeLocalFile(fileId));
+        dispatch(addUploadedFile(uploadResponse.data));
+      }
+      
       const response = await documentService.signDocument(documentId, signature);
       return { documentId, signedDate: new Date().toISOString() };
     } catch (error: any) {
@@ -66,6 +89,15 @@ const documentsSlice = createSlice({
   name: 'documents',
   initialState,
   reducers: {
+    addLocalFile: (state, action: PayloadAction<DocumentFile>) => {
+      state.localFiles.push(action.payload);
+    },
+    removeLocalFile: (state, action: PayloadAction<string>) => {
+      state.localFiles = state.localFiles.filter(file => file.id !== action.payload);
+    },
+    addUploadedFile: (state, action: PayloadAction<DocumentFile>) => {
+      state.files.push(action.payload);
+    },
     addUploadProgress: (state, action: PayloadAction<UploadProgress>) => {
       state.uploadProgress.push(action.payload);
     },
@@ -131,6 +163,9 @@ const documentsSlice = createSlice({
 });
 
 export const { 
+  addLocalFile,
+  removeLocalFile,
+  addUploadedFile,
   addUploadProgress, 
   updateUploadProgress, 
   removeUploadProgress, 

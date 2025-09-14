@@ -4,9 +4,10 @@ export interface DocumentFile {
   size: number;
   type: string;
   uploadDate: string;
-  status: 'pending' | 'viewed' | 'signed';
+  status: 'local' | 'pending' | 'viewed' | 'signed';
   signedDate?: string;
   url?: string;
+  file?: File; // For local files before upload
 }
 
 export interface UploadProgress {

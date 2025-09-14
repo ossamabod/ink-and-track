@@ -11,21 +11,32 @@ import { documentService } from '@/services/documentService';
 
 const FileList: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { files, isLoading, error } = useAppSelector((state) => state.documents);
+  const { files, localFiles, isLoading, error } = useAppSelector((state) => state.documents);
 
   useEffect(() => {
     dispatch(fetchDocuments());
   }, [dispatch]);
 
+  // Combine local files and uploaded files
+  const allFiles = [...localFiles, ...files];
+
   const handleViewDocument = async (document: DocumentFile) => {
     try {
-      const response = await documentService.viewDocument(document.id);
-      if (response.success && response.data?.url) {
-        // Open document in new tab/window
-        window.open(response.data.url, '_blank');
-        // Mark as viewed if it was pending
-        if (document.status === 'pending') {
-          dispatch(markDocumentAsViewed(document.id));
+      if (document.status === 'local' && document.file) {
+        // Create blob URL for local files
+        const url = URL.createObjectURL(document.file);
+        window.open(url, '_blank');
+        // Clean up the URL after a delay
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } else {
+        const response = await documentService.viewDocument(document.id);
+        if (response.success && response.data?.url) {
+          // Open document in new tab/window
+          window.open(response.data.url, '_blank');
+          // Mark as viewed if it was pending
+          if (document.status === 'pending') {
+            dispatch(markDocumentAsViewed(document.id));
+          }
         }
       }
     } catch (error) {
@@ -43,7 +54,7 @@ const FileList: React.FC = () => {
       // In a real app, you'd have a proper signature modal/component
       const signature = prompt('Enter your digital signature:');
       if (signature) {
-        await dispatch(signDocument({ documentId: document.id, signature })).unwrap();
+        await dispatch(signDocument({ document, signature })).unwrap();
         toast({
           title: 'Success',
           description: 'Document signed successfully',
@@ -60,6 +71,13 @@ const FileList: React.FC = () => {
 
   const getStatusBadge = (status: DocumentFile['status']) => {
     switch (status) {
+      case 'local':
+        return (
+          <Badge variant="outline" className="bg-blue/10 text-blue border-blue/30">
+            <FileText className="h-3 w-3 mr-1" />
+            Ready to Sign
+          </Badge>
+        );
       case 'pending':
         return (
           <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30">
@@ -129,11 +147,11 @@ const FileList: React.FC = () => {
             <h2 className="text-xl font-semibold">Document Library</h2>
           </div>
           <Badge variant="secondary" className="text-sm">
-            {files.length} documents
+            {allFiles.length} documents
           </Badge>
         </div>
 
-        {files.length === 0 ? (
+        {allFiles.length === 0 ? (
           <div className="text-center py-8">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-lg font-medium text-muted-foreground">No documents uploaded yet</p>
@@ -141,7 +159,7 @@ const FileList: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {files.map((file) => (
+            {allFiles.map((file) => (
               <Card key={file.id} className="p-4 transition-all duration-300 hover:shadow-hover">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
@@ -187,7 +205,8 @@ const FileList: React.FC = () => {
                       className="transition-all duration-300 hover:bg-success/10 hover:border-success/30 disabled:opacity-50"
                     >
                       <PenTool className="h-4 w-4 mr-2" />
-                      {file.status === 'signed' ? 'Signed' : 'Sign'}
+                      {file.status === 'signed' ? 'Signed' : 
+                       file.status === 'local' ? 'Upload & Sign' : 'Sign'}
                     </Button>
                   </div>
                 </div>

@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux';
-import { uploadDocument } from '@/store/slices/documentsSlice';
+import { addLocalFile } from '@/store/slices/documentsSlice';
+import { DocumentFile } from '@/types/document';
 import { toast } from '@/hooks/use-toast';
 
 const FileUpload: React.FC = () => {
@@ -43,7 +44,24 @@ const FileUpload: React.FC = () => {
           return;
         }
 
-        dispatch(uploadDocument(file));
+        // Create local file entry
+        const localFile: DocumentFile = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          uploadDate: new Date().toISOString(),
+          status: 'local',
+          file: file
+        };
+
+        // Add to local files
+        dispatch(addLocalFile(localFile));
+        
+        toast({
+          title: 'File ready',
+          description: `${file.name} is ready to sign`,
+        });
       });
     },
     [dispatch]
@@ -98,7 +116,7 @@ const FileUpload: React.FC = () => {
                 or <span className="text-primary font-medium">browse files</span>
               </p>
               <p className="text-sm text-muted-foreground">
-                Supports PDF, DOC, DOCX, JPG, PNG (max 10MB each)
+                Files will be ready for signing (max 10MB each)
               </p>
             </div>
 
